@@ -14,8 +14,8 @@
 import { APIRequestContext, Page, expect } from '@playwright/test';
 
 export const CREDENTIALS = {
-  username: 'admin',
-  password: 'admin',
+  username: 'tomsmith',
+  password: 'SuperSecretPassword!',
 } as const;
 
 export const URLS = {

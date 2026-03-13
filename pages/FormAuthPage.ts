@@ -9,7 +9,7 @@
 export const FORM_AUTH = {
   endpoint: '/authenticate',
   successRedirect: '/secure',
-  validCredentials: { username: 'admin', password: 'admin' },
+  validCredentials: { username: 'tomsmith', password: 'SuperSecretPassword!' },
   invalidCredentials: { username: 'wrong', password: 'wrong' },
   expectedSuccessText: 'You logged into a secure area!',
   expectedFailureText: 'Your username is invalid!',
