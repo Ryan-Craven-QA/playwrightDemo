@@ -1,0 +1,20 @@
+{
+  "name": "playwright-transaction-demo",
+  "version": "1.0.0",
+  "description": "Quality Validation Demo - Multi-layer test strategy using Playwright against The Internet Herokuapp",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --project=smoke",
+    "test:api": "playwright test --project=api",
+    "test:integration": "playwright test --project=integration",
+    "test:e2e": "playwright test --project=e2e",
+    "test:visual": "playwright test --project=visual",
+    "test:update-snapshots": "playwright test --project=visual --update-snapshots",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
