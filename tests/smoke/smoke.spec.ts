@@ -97,7 +97,7 @@ test('S4: authenticated user can access the secure area', async ({ page }) => {
   await secureAreaPage.assertLoaded();
 
   // The heading confirms the correct page was served.
-  await expect(page.getByRole('heading', { name: 'Secure Area' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Secure Area', exact: true })).toBeVisible();
 
   // The logout link confirms the session is active.
   await expect(page.getByRole('link', { name: 'Logout' })).toBeVisible();

@@ -55,7 +55,7 @@ test('E1: complete authentication lifecycle — login, access secure area, logou
   await secureAreaPage.assertWelcomeMessage();
 
   // STEP 4: Confirm the authenticated session provides access to secure content
-  await expect(page.getByRole('heading', { name: 'Secure Area' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Secure Area', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Logout' })).toBeVisible();
 
   // STEP 5: Logout to terminate the session

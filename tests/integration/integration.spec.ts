@@ -68,8 +68,8 @@ test('I1: UI login triggers correct authentication exchange and produces server 
   // authentication service with the expected credentials.
   expect(capturedLoginRequest).not.toBeNull();
   expect(capturedLoginRequest!.method).toBe('POST');
-  expect(capturedLoginRequest!.formData).toContain(`username=${CREDENTIALS.username}`);
-  expect(capturedLoginRequest!.formData).toContain(`password=${CREDENTIALS.password}`);
+  expect(capturedLoginRequest!.formData).toContain(`username=${encodeURIComponent(CREDENTIALS.username)}`);
+  expect(capturedLoginRequest!.formData).toContain(`password=${encodeURIComponent(CREDENTIALS.password)}`);
 });
 
 // ---------------------------------------------------------------------------

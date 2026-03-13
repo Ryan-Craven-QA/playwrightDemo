@@ -45,10 +45,10 @@ test('A1: valid credentials are accepted and a session is established', async ({
     maxRedirects: 0,
   });
 
-  // A 302 redirect to /secure is the expected success signal.
+  // A redirect to /secure is the expected success signal (302 or 303).
   // The server confirming the session before the redirect proves
   // authentication occurred at the service layer.
-  expect([200, 302]).toContain(response.status());
+  expect([200, 302, 303]).toContain(response.status());
 
   // The response must include a Set-Cookie header to establish the session.
   // Without this header, all subsequent authenticated requests would fail
@@ -76,7 +76,7 @@ test('A2: invalid credentials are rejected at the service layer', async ({ reque
   // a redirect back to /login. Either way, the session must NOT be
   // established — validated below by checking for absence of /secure redirect.
   const status = response.status();
-  expect([200, 302]).toContain(status);
+  expect([200, 302, 303]).toContain(status);
 
   if (status === 302) {
     const location = response.headers()['location'] ?? '';

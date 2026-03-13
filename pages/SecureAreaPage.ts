@@ -21,7 +21,7 @@ export class SecureAreaPage {
 
   async assertLoaded(): Promise<void> {
     await expect(this.page).toHaveURL(/\/secure/);
-    await expect(this.page.getByRole('heading', { name: 'Secure Area' })).toBeVisible();
+    await expect(this.page.getByRole('heading', { name: 'Secure Area', exact: true })).toBeVisible();
   }
 
   async assertWelcomeMessage(): Promise<void> {
