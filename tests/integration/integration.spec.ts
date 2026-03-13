@@ -68,8 +68,13 @@ test('I1: UI login triggers correct authentication exchange and produces server 
   // authentication service with the expected credentials.
   expect(capturedLoginRequest).not.toBeNull();
   expect(capturedLoginRequest!.method).toBe('POST');
-  expect(capturedLoginRequest!.formData).toContain(`username=${encodeURIComponent(CREDENTIALS.username)}`);
-  expect(capturedLoginRequest!.formData).toContain(`password=${encodeURIComponent(CREDENTIALS.password)}`);
+
+  // Parse the URL-encoded form body so we compare decoded values directly.
+  // This avoids encoding discrepancies (e.g. ! → %21) between encodeURIComponent
+  // and the browser's application/x-www-form-urlencoded implementation.
+  const params = new URLSearchParams(capturedLoginRequest!.formData);
+  expect(params.get('username')).toBe(CREDENTIALS.username);
+  expect(params.get('password')).toBe(CREDENTIALS.password);
 });
 
 // ---------------------------------------------------------------------------
