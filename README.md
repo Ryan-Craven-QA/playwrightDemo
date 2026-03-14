@@ -23,15 +23,15 @@ and proving that sessions are created and destroyed correctly.
          ┌──────────────┐
          │   VISUAL (V) │  ← stable UI guardrails        (5 tests)
         ┌┴──────────────┴┐
-        │     E2E (E)     │ ← critical business workflows (4 tests)
+        │     E2E (E)     │ ← critical business workflows (3 tests)
        ┌┴─────────────────┴┐
-       │  INTEGRATION (I)   │ ← cross-layer validation    (5 tests)
+       │  INTEGRATION (I)   │ ← cross-layer validation    (3 tests)
       ┌┴───────────────────┴┐
       │       API (A)        │ ← direct backend validation (4 tests)
      ┌┴─────────────────────┴┐
      │       SMOKE (S)        │ ← fast deployment gate     (3 tests)
      └────────────────────────┘
-                                                    Total: 21 tests
+                                                    Total: 18 tests
 ```
 
 Each layer has a specific job. Tests do not duplicate work done by a lower
@@ -45,8 +45,8 @@ layer — they build on it.
 |---|---|---|---|
 | Smoke | `tests/smoke/` | 3 | Is the app alive and the critical path working? |
 | API | `tests/api/` | 4 | What did the server actually accept or reject? |
-| Integration | `tests/integration/` | 5 | Do UI actions produce the correct server exchanges and state? |
-| E2E | `tests/e2e/` | 4 | Do complete user journeys work end-to-end? |
+| Integration | `tests/integration/` | 3 | Does a UI action produce the correct HTTP exchange or DOM state? |
+| E2E | `tests/e2e/` | 3 | Do complete user journeys work end-to-end? |
 | Visual | `tests/visual/` | 5 | Did any stable screen change unexpectedly? |
 
 ---
@@ -102,68 +102,62 @@ session reuse in other suites.
 
 ---
 
-### Integration Suite — "Do the layers work together correctly?"
+### Integration Suite — "Do the layers talk to each other correctly?"
 
-Integration tests answer the gap between "the screen said success" and "the
-system actually processed it."
+Integration tests answer a specific question: did the action at one layer
+produce the correct result at the next layer? Each test stops at a boundary
+and inspects it — no full journeys, no session lifecycle.
 
 **I1 — UI login sends the correct HTTP exchange**
 Registers a `request` event listener before logging in. After the redirect
 completes, inspects the captured request to verify: the method was POST, the
-content-type was `application/x-www-form-urlencoded` (not JSON), and the
-username and password fields were populated correctly. A mismatch here would
-break authentication silently.
+content-type was `application/x-www-form-urlencoded` (not JSON), and both
+credential fields decoded correctly. A mismatch here would break authentication
+silently — the UI would appear to submit but the server would reject the
+request. This is the only test in the entire suite that checks the wire.
 
 **I2 — Server rejection is reflected correctly in the UI**
-Submits invalid credentials and confirms: the browser stays on `/login` (not
-redirected to `/secure`), and the error flash message appears with the `error`
-CSS class applied. Validates that the server's rejection travels all the way
-to the user's screen.
+Submits invalid credentials and confirms two things: the browser stays on
+`/login`, and the error flash has the `error` CSS class applied. This validates
+the seam from server response to UI rendering — the server's rejection must
+travel correctly up to the screen.
 
-**I3 — Add and delete maintain precise state at every step**
-Adds three elements, asserting the count after each one (0→1, 1→2, 2→3),
-then deletes one and confirms the count drops to exactly 2 — not all deleted,
-not unchanged. Checking the count at each step catches failures that only
-checking the final count would miss.
-
-**I4 — Full reversal returns to a clean state**
-Adds 3 elements, then deletes all 3 one by one, asserting zero remain. Also
-confirms the Add Element button is still enabled after full reversal — the
-page must remain functional, not left in a broken state.
-
-**I5 — Logout terminates the server session**
-Logs in, logs out, then navigates directly to `/secure`. Confirms the browser
-is redirected away. This proves logout is not just a UI state change — the
-server actually invalidated the session.
+**I3 — Add element produces exactly the correct DOM state change**
+Clicks Add Element once and asserts the DOM contains exactly 1 Delete button.
+One action, one assertion at the resulting layer. This is the layer-boundary
+check for the transaction feature: the click was received, processed, and the
+UI reflects the exact state change — not approximately, not "at least one."
 
 ---
 
 ### E2E Suite — "Does the complete user journey work?"
 
-E2E tests cover scenarios that span multiple features or lifecycle stages. Each
-test must cover something not already proven by a lower layer.
+E2E tests cover scenarios that span multiple features or lifecycle stages.
+Each test must cover something that cannot be validated by a lower layer alone —
+no single-action tests, no duplicates of integration concerns.
 
 **E1 — Complete session lifecycle**
 Login → access secure content → logout → confirm session is gone. The lower
 layers validate each step individually. This test proves they work as a
-connected sequence.
+connected sequence: authentication leads to access, logout terminates the
+session at the server (not just the UI), and direct navigation after logout
+is blocked.
 
-**E2 — Full transaction lifecycle with state integrity**
-The demo's core answer to the central question. Adds 3 elements (verifying
-state after each), then deletes all 3 (verifying state after each), ending
-with an empty list and a still-functional Add button. State is never assumed —
-it is always confirmed.
+**E2 — Error recovery after a failed login**
+Submits wrong credentials, confirms the error state and that the form is still
+actionable, then submits correct credentials and confirms successful
+authentication. I2 proves the server rejects bad credentials. This test goes
+further: the rejection must not corrupt form state or prevent a valid retry.
+A broken implementation might lock the form, cache the error session, or clear
+the input fields.
 
-**E3 — Unauthenticated access as a browser experience**
-A3 validates the HTTP redirect. This test validates what the user actually
-sees: the browser lands on `/login` and the login form is rendered and
-actionable. A redirect that breaks the browser experience would pass A3 but
-fail here.
-
-**E4 — Error recovery after a failed login**
-Submits wrong credentials, confirms the error state, then submits correct
-credentials and confirms successful authentication. A broken implementation
-might corrupt form state or cache the error in a way that blocks a valid retry.
+**E3 — Full feature journey: auth + transaction feature + session cleanup**
+The demo's signature test. Logs in, navigates to the transaction feature, adds
+3 elements (verifying the count after each), deletes all 3 (verifying the count
+after each), then logs out and confirms the session is terminated. No lower
+layer can validate this as a single connected flow — it spans authentication,
+the transactional feature, state integrity across 6 operations, and session
+cleanup in one unbroken journey.
 
 ---
 
@@ -183,14 +177,13 @@ but an early warning for unintended UI regressions.
 
 ## Authentication Strategy
 
-**S2** is the only test that uses real browser-based UI login. All other tests
-that need an authenticated state use `apiLogin()` from `utils/auth.ts`, which
-POSTs credentials directly to `/authenticate` and reuses the returned session
-cookie. This is:
+**S2** is the only test that validates the real browser-based login form
+end-to-end. All other tests that need an authenticated session call
+`LoginPage.loginWith(CREDENTIALS)` directly — which is fast, stable, and keeps
+the test focused on the feature under test rather than the login flow.
 
-- **Faster** — no browser rendering of the login form
-- **Less flaky** — no timing dependencies on form animations
-- **More focused** — the test's intent is on the feature, not the login flow
+`CREDENTIALS` is defined once in `utils/auth.ts` and imported everywhere it
+is needed. Credentials are never hardcoded in test files.
 
 ---
 

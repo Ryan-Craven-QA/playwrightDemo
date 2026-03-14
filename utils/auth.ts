@@ -3,16 +3,13 @@
  *
  * Strategy:
  *   - One smoke test validates the real UI login path end-to-end.
- *   - All other suites use API-based or session-based authentication to
- *     reduce runtime and eliminate login-flow flakiness.
+ *   - All other suites authenticate by calling LoginPage.loginWith(CREDENTIALS)
+ *     directly, keeping test intent focused on the feature under test.
  *
  * The Internet Herokuapp credentials:
  *   username: tomsmith
  *   password: SuperSecretPassword!
  */
-
-import { APIRequestContext, Page, expect } from '@playwright/test';
-import { LoginPage } from '../pages/LoginPage';
 
 export const CREDENTIALS = {
   username: 'tomsmith',
@@ -25,60 +22,19 @@ export const URLS = {
   home: '/',
 } as const;
 
-/**
- * Log in through the UI.
- * Use this only in smoke tests and the single UI-login validation scenario.
- * For everything else, prefer apiLogin() or session reuse.
- */
-export async function uiLogin(page: Page): Promise<void> {
-  const loginPage = new LoginPage(page);
-  await loginPage.goto();
-  await loginPage.loginWith(CREDENTIALS.username, CREDENTIALS.password);
-  await expect(page).toHaveURL(/\/secure/);
-}
-
-/**
- * Log in via HTTP POST and return the session cookie string.
+/*
+ * Removed exports — dead code per developer checklist (no test file imported them):
  *
- * By authenticating at the HTTP layer we avoid the browser overhead of
- * rendering and interacting with the login page for every test that needs
- * an authenticated session. This is faster, more stable, and keeps test
- * intent focused on the feature under test rather than the login flow.
+ *   uiLogin(page)
+ *     Wrapped LoginPage.goto() + loginWith() + expect(url). Tests that need UI
+ *     login call those LoginPage methods directly with CREDENTIALS, which is
+ *     clearer and keeps the page object as the single interaction point.
+ *
+ *   apiLogin(request)
+ *     Posted credentials via HTTP and returned the Set-Cookie header string.
+ *     No test used it. Reintroduce at the point a test actually needs it.
+ *
+ *   injectSession(page, cookieHeader)
+ *     Parsed and injected a raw Set-Cookie string into the browser context.
+ *     No test used it. Reintroduce together with apiLogin when needed.
  */
-export async function apiLogin(request: APIRequestContext): Promise<string> {
-  const response = await request.post('/authenticate', {
-    form: {
-      username: CREDENTIALS.username,
-      password: CREDENTIALS.password,
-    },
-  });
-
-  // The Herokuapp uses a redirect after successful login; a 200 on /secure
-  // or a redirect (302) to /secure both indicate success.
-  const validStatuses = [200, 302];
-  if (!validStatuses.includes(response.status())) {
-    throw new Error(
-      `API login failed with status ${response.status()}: ${await response.text()}`
-    );
-  }
-
-  const cookies = response.headers()['set-cookie'] ?? '';
-  return cookies;
-}
-
-/**
- * Inject an already-obtained session cookie into a page context so that
- * the page starts in an authenticated state without going through the
- * login UI or an additional API call.
- */
-export async function injectSession(page: Page, cookieHeader: string): Promise<void> {
-  const [name, value] = cookieHeader.split(';')[0].split('=');
-  await page.context().addCookies([
-    {
-      name: name.trim(),
-      value: value.trim(),
-      domain: 'the-internet.herokuapp.com',
-      path: '/',
-    },
-  ]);
-}

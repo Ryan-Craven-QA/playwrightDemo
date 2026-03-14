@@ -42,61 +42,7 @@ test('E1: complete session lifecycle — login, access secure content, logout, s
 });
 
 // ---------------------------------------------------------------------------
-// E2 — Full transaction lifecycle with state integrity at every step
-//
-// The demo's core answer to: "How do you know it actually processed correctly?"
-// Validates the complete add → verify → delete → verify → clean cycle,
-// checking state after every single operation to catch silent failures.
-// ---------------------------------------------------------------------------
-test('E2: full transaction lifecycle — create, verify state integrity, remove all, verify clean', async ({ page }) => {
-  const elementsPage = new AddRemoveElementsPage(page);
-
-  await elementsPage.goto();
-  await elementsPage.assertNoElements();
-
-  // Add phase — verify state accumulates correctly, not resets or duplicates.
-  await elementsPage.addElement();
-  await elementsPage.assertElementCount(1);
-
-  await elementsPage.addElement();
-  await elementsPage.assertElementCount(2);
-
-  await elementsPage.addElement();
-  await elementsPage.assertElementCount(3);
-
-  // Delete phase — verify each removal is precise.
-  await elementsPage.deleteFirstElement();
-  await elementsPage.assertElementCount(2);
-
-  await elementsPage.deleteFirstElement();
-  await elementsPage.assertElementCount(1);
-
-  await elementsPage.deleteFirstElement();
-  await elementsPage.assertNoElements();
-
-  // System must remain functional after a full transaction cycle.
-  await expect(page.getByRole('button', { name: 'Add Element' })).toBeEnabled();
-});
-
-// ---------------------------------------------------------------------------
-// E3 — Unauthenticated access is enforced as a browser-level experience
-//
-// A3 validates this at the HTTP layer. This test validates it as a user
-// experiences it: the browser is redirected, lands on the login page,
-// and the form is actionable. A server redirect that breaks the browser
-// experience would pass A3 but fail here.
-// ---------------------------------------------------------------------------
-test('E3: unauthenticated user is redirected to login and presented with actionable form', async ({ page }) => {
-  await page.goto('/secure');
-
-  await expect(page).toHaveURL(/\/login/);
-
-  const loginPage = new LoginPage(page);
-  await loginPage.assertLoginFormVisible();
-});
-
-// ---------------------------------------------------------------------------
-// E4 — Error recovery: failed login attempt does not prevent subsequent success
+// E2 — Error recovery: failed login attempt does not prevent subsequent success
 //
 // Validates the complete negative-then-positive path. I2 proves the server
 // rejects invalid credentials. This test goes further: after rejection,
@@ -104,7 +50,7 @@ test('E3: unauthenticated user is redirected to login and presented with actiona
 // A broken implementation might lock the form, corrupt state, or cache
 // the error in a way that blocks a valid retry.
 // ---------------------------------------------------------------------------
-test('E4: user recovers from failed login and successfully authenticates on retry', async ({ page }) => {
+test('E2: user recovers from failed login and successfully authenticates on retry', async ({ page }) => {
   const loginPage = new LoginPage(page);
   const secureAreaPage = new SecureAreaPage(page);
 
@@ -118,4 +64,51 @@ test('E4: user recovers from failed login and successfully authenticates on retr
   await loginPage.loginWith(CREDENTIALS.username, CREDENTIALS.password);
   await secureAreaPage.assertLoaded();
   await secureAreaPage.assertWelcomeMessage();
+});
+
+// ---------------------------------------------------------------------------
+// E3 — Full feature journey: auth + transaction feature + session cleanup
+//
+// Spans three concerns in one connected flow — authentication, the core
+// transactional feature, and session termination — none of which can be
+// validated in isolation at a lower layer. Validates state integrity at
+// every step of both the add and delete phases before confirming the
+// session is properly terminated at the end.
+// ---------------------------------------------------------------------------
+test('E3: full feature journey — login, add 3 elements, delete all 3, verify clean, logout', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  const secureAreaPage = new SecureAreaPage(page);
+  const elementsPage = new AddRemoveElementsPage(page);
+
+  // Step 1: Authenticate.
+  await loginPage.goto();
+  await loginPage.loginWith(CREDENTIALS.username, CREDENTIALS.password);
+  await secureAreaPage.assertLoaded();
+
+  // Step 2: Navigate to the transactional feature.
+  await elementsPage.goto();
+
+  // Step 3: Add phase — assert count accumulates correctly after each add.
+  await elementsPage.addElement();
+  await elementsPage.assertElementCount(1);
+
+  await elementsPage.addElement();
+  await elementsPage.assertElementCount(2);
+
+  await elementsPage.addElement();
+  await elementsPage.assertElementCount(3);
+
+  // Step 4: Delete phase — assert count decrements precisely after each delete.
+  await elementsPage.deleteFirstElement();
+  await elementsPage.assertElementCount(2);
+
+  await elementsPage.deleteFirstElement();
+  await elementsPage.assertElementCount(1);
+
+  await elementsPage.deleteFirstElement();
+  await elementsPage.assertElementCount(0);
+
+  // Step 5: Log out and confirm the session is terminated.
+  await secureAreaPage.logout();
+  await secureAreaPage.assertLogoutSuccessful();
 });
