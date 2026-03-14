@@ -108,7 +108,8 @@ test('E3: full feature journey — login, add 3 elements, delete all 3, verify c
   await elementsPage.deleteFirstElement();
   await elementsPage.assertElementCount(0);
 
-  // Step 5: Log out and confirm the session is terminated.
+  // Step 5: Navigate back to secure area and log out.
+  await secureAreaPage.goto();
   await secureAreaPage.logout();
   await secureAreaPage.assertLogoutSuccessful();
 });
