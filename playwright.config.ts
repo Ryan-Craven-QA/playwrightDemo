@@ -86,7 +86,9 @@ export default defineConfig({
     {
       name: 'visual',
       testDir: './tests/visual',
-      use: { ...devices['Desktop Chrome'] },
+      // Always headless — headed mode renders fonts and pixels differently,
+      // which causes false failures against headless-captured baselines.
+      use: { ...devices['Desktop Chrome'], headless: true },
     },
   ],
 });
