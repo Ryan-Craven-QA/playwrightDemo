@@ -51,14 +51,14 @@ test('A2: invalid credentials are rejected and do not produce a session', async 
   const status = response.status();
   expect([200, 302, 303]).toContain(status);
 
+  // The redirect target must not be /secure — that is the only meaningful
+  // proof of rejection. Rack sets a session cookie even on failed logins
+  // (to carry the flash error message), so cookie presence cannot be used
+  // to distinguish success from failure.
   if (status === 302 || status === 303) {
     const location = response.headers()['location'] ?? '';
     expect(location).not.toMatch(/\/secure/);
   }
-
-  // No session cookie should be set for a rejected authentication.
-  const setCookie = response.headers()['set-cookie'] ?? '';
-  expect(setCookie).not.toMatch(/rack\.session/);
 });
 
 // ---------------------------------------------------------------------------
