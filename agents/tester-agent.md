@@ -132,6 +132,12 @@ For every test, verify:
 - [ ] No assertion checks something a lower-layer test already proves
 - [ ] Test names follow the pattern: `X#: short description of what is proven`
 
+## Git Workflow
+
+- **Do not push any code unless it has been reviewed and approved first.**
+- Always open a pull request — never push directly to `main` or `master`.
+- Work on a feature branch and submit a PR for review before merging.
+
 ## Output Format
 For each issue found, report:
 - Suite and test ID
