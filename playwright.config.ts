@@ -42,10 +42,7 @@ export default defineConfig({
     {
       name: 'smoke',
       testDir: './tests/smoke',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: 'https://the-internet.herokuapp.com',
-      },
+      use: { ...devices['Desktop Chrome'] },
     },
 
     // -----------------------------------------------------------------------
@@ -56,10 +53,7 @@ export default defineConfig({
     {
       name: 'api',
       testDir: './tests/api',
-      use: {
-        // API tests drive HTTP directly; no browser viewport needed.
-        baseURL: 'https://the-internet.herokuapp.com',
-      },
+      // API tests drive HTTP directly; no browser viewport needed.
     },
 
     // -----------------------------------------------------------------------
@@ -70,10 +64,7 @@ export default defineConfig({
     {
       name: 'integration',
       testDir: './tests/integration',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: 'https://the-internet.herokuapp.com',
-      },
+      use: { ...devices['Desktop Chrome'] },
     },
 
     // -----------------------------------------------------------------------
@@ -84,10 +75,7 @@ export default defineConfig({
     {
       name: 'e2e',
       testDir: './tests/e2e',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: 'https://the-internet.herokuapp.com',
-      },
+      use: { ...devices['Desktop Chrome'] },
     },
 
     // -----------------------------------------------------------------------
@@ -98,10 +86,7 @@ export default defineConfig({
     {
       name: 'visual',
       testDir: './tests/visual',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: 'https://the-internet.herokuapp.com',
-      },
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 });

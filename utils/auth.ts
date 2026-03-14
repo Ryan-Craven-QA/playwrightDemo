@@ -7,8 +7,8 @@
  *     reduce runtime and eliminate login-flow flakiness.
  *
  * The Internet Herokuapp credentials:
- *   username: admin
- *   password: admin
+ *   username: tomsmith
+ *   password: SuperSecretPassword!
  */
 
 import { APIRequestContext, Page, expect } from '@playwright/test';

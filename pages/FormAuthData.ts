@@ -8,12 +8,17 @@
  * Note: this is intentionally NOT a Page Object class — it has no Page
  * dependency and is used exclusively by the API suite. Browser-based
  * interactions with the login form belong to LoginPage.ts.
+ *
+ * validCredentials references the single source of truth from auth.ts so
+ * credentials are never defined in two places.
  */
+
+import { CREDENTIALS } from '../utils/auth';
 
 export const FORM_AUTH = {
   endpoint: '/authenticate',
   successRedirect: '/secure',
-  validCredentials: { username: 'tomsmith', password: 'SuperSecretPassword!' },
+  validCredentials: CREDENTIALS,
   invalidCredentials: { username: 'wrong', password: 'wrong' },
   expectedSuccessText: 'You logged into a secure area!',
   expectedFailureText: 'Your username is invalid!',
