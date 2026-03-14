@@ -12,6 +12,7 @@
  */
 
 import { APIRequestContext, Page, expect } from '@playwright/test';
+import { LoginPage } from '../pages/LoginPage';
 
 export const CREDENTIALS = {
   username: 'tomsmith',
@@ -30,10 +31,9 @@ export const URLS = {
  * For everything else, prefer apiLogin() or session reuse.
  */
 export async function uiLogin(page: Page): Promise<void> {
-  await page.goto(URLS.login);
-  await page.getByLabel('Username').fill(CREDENTIALS.username);
-  await page.getByLabel('Password').fill(CREDENTIALS.password);
-  await page.getByRole('button', { name: 'Login' }).click();
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.loginWith(CREDENTIALS.username, CREDENTIALS.password);
   await expect(page).toHaveURL(/\/secure/);
 }
 

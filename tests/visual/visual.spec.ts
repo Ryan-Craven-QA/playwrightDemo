@@ -13,6 +13,8 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { LoginPage } from '../../pages/LoginPage';
+import { AddRemoveElementsPage } from '../../pages/AddRemoveElementsPage';
 import { CREDENTIALS } from '../../utils/auth';
 
 // ---------------------------------------------------------------------------
@@ -55,11 +57,12 @@ test('V2: transaction feature initial state matches baseline', async ({ page }) 
 // V2 and V3 together cover the before/after of the core user interaction.
 // ---------------------------------------------------------------------------
 test('V3: transaction feature post-submission state matches baseline', async ({ page }) => {
-  await page.goto('/add_remove_elements/');
+  const elementsPage = new AddRemoveElementsPage(page);
+  await elementsPage.goto();
   await page.waitForLoadState('networkidle');
 
-  await page.getByRole('button', { name: 'Add Element' }).click();
-  await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
+  await elementsPage.addElement();
+  await expect(elementsPage.getDeleteButtons()).toBeVisible();
 
   await expect(page.locator('#content')).toHaveScreenshot('elements-with-record.png', {
     maxDiffPixels: 50,
@@ -75,10 +78,9 @@ test('V3: transaction feature post-submission state matches baseline', async ({ 
 // Flash message is excluded (dynamic text) — only stable content is captured.
 // ---------------------------------------------------------------------------
 test('V4: secure area content matches baseline after login', async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('Username').fill(CREDENTIALS.username);
-  await page.getByLabel('Password').fill(CREDENTIALS.password);
-  await page.getByRole('button', { name: 'Login' }).click();
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.loginWith(CREDENTIALS.username, CREDENTIALS.password);
 
   await expect(page).toHaveURL(/\/secure/);
   await page.waitForLoadState('networkidle');

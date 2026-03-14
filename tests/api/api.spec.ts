@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { FORM_AUTH } from '../../pages/FormAuthPage';
+import { FORM_AUTH } from '../../pages/FormAuthData';
 
 // ---------------------------------------------------------------------------
 // A1 — Valid credentials produce an authenticated session
