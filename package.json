@@ -4,6 +4,7 @@
   "description": "Quality Validation Demo - Multi-layer test strategy using Playwright against The Internet Herokuapp",
   "scripts": {
     "test": "playwright test",
+    "test:headed": "playwright test --project=smoke --project=api --project=integration --project=e2e --headed",
     "test:smoke": "playwright test --project=smoke",
     "test:api": "playwright test --project=api",
     "test:integration": "playwright test --project=integration",
