@@ -214,11 +214,16 @@ npm test                    # all 21 tests, all suites
 npm test
 
 # Headed — opens a real Chrome window so you can watch the tests run
-npx playwright test --headed
+# (skips visual suite — snapshot diffs are meaningless in a headed run)
+npm run test:headed
 
 # Headed for a specific suite
 npx playwright test --project=e2e --headed
 ```
+
+> **Note:** `npx playwright test --headed` runs *all* projects including visual.
+> `npm run test:headed` adds explicit `--project` flags to exclude visual, which
+> prevents snapshot comparison failures that aren't meaningful in a headed context.
 
 ### Run in a specific browser
 
