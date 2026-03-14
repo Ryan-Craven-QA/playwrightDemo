@@ -1,196 +1,103 @@
 /**
  * API SUITE
  * =========
- * Purpose: Validate business logic and service behavior directly at the
- *          HTTP layer, without browser overhead.
+ * Purpose: Validate authentication and access-control behavior directly at
+ *          the HTTP layer — faster and more precise than any UI test.
  *
- * Why this matters:
- *   API tests are typically faster, more stable, and more precise than UI
- *   tests. They validate what the backend actually accepted and returned,
- *   not just what the browser rendered. If a workflow's real risk lives in
- *   the backend, API validation should carry most of the confidence burden.
+ * What belongs here:
+ *   Tests that validate what the server accepted, rejected, and returned.
+ *   Not health checks (that's smoke) and not UI rendering (that's integration).
  *
- * What we validate here:
- *   - Authentication endpoint accepts correct credentials and returns a
- *     session token/cookie
- *   - Authentication endpoint rejects invalid credentials with the correct
- *     HTTP status and error indicator
- *   - The protected resource returns the expected response for an
- *     authenticated request
- *   - The protected resource denies unauthenticated access
- *   - Key response headers and response structure match expectations
- *
- * Core quality principle:
+ * Core principle:
  *   A UI popup saying "success" is a presentation-layer signal.
- *   API validation confirms what the server actually processed and returned.
+ *   These tests confirm what the server actually processed.
  */
 
 import { test, expect } from '@playwright/test';
 import { FORM_AUTH } from '../../pages/FormAuthPage';
 
 // ---------------------------------------------------------------------------
-// A1 — Authentication endpoint accepts valid credentials
-// Validates that POST /authenticate with correct credentials produces an
-// authenticated session (redirect to /secure) and returns a session cookie.
+// A1 — Valid credentials produce an authenticated session
+//
+// Stops redirects so we can inspect the raw response and confirm the
+// server set a session cookie before the browser would follow the redirect.
+// Without the cookie, every subsequent authenticated request silently fails.
 // ---------------------------------------------------------------------------
-test('A1: valid credentials are accepted and a session is established', async ({ request }) => {
+test('A1: valid credentials produce a session cookie at the HTTP layer', async ({ request }) => {
   const response = await request.post(FORM_AUTH.endpoint, {
-    form: {
-      username: FORM_AUTH.validCredentials.username,
-      password: FORM_AUTH.validCredentials.password,
-    },
-    // Do not follow the redirect so we can inspect the raw 302 response
-    // and confirm the session cookie was set before the browser would
-    // normally follow the redirect.
+    form: FORM_AUTH.validCredentials,
     maxRedirects: 0,
   });
 
-  // A redirect to /secure is the expected success signal (302 or 303).
-  // The server confirming the session before the redirect proves
-  // authentication occurred at the service layer.
   expect([200, 302, 303]).toContain(response.status());
 
-  // The response must include a Set-Cookie header to establish the session.
-  // Without this header, all subsequent authenticated requests would fail
-  // regardless of what the UI displayed.
   const headers = response.headers();
-  const hasCookie = 'set-cookie' in headers || headers['set-cookie'] !== undefined;
-  expect(hasCookie).toBeTruthy();
+  expect('set-cookie' in headers).toBeTruthy();
 });
 
 // ---------------------------------------------------------------------------
-// A2 — Authentication endpoint rejects invalid credentials
-// Validates that wrong credentials do NOT produce an authenticated session.
-// This is a negative-path test — just as important as the positive path.
+// A2 — Invalid credentials are rejected and no session is established
+//
+// The critical assertion is not just that the status is non-200 — it's that
+// the redirect target (if there is one) is NOT /secure, proving the server
+// did not grant access regardless of what the UI might display.
 // ---------------------------------------------------------------------------
-test('A2: invalid credentials are rejected at the service layer', async ({ request }) => {
+test('A2: invalid credentials are rejected and do not produce a session', async ({ request }) => {
   const response = await request.post(FORM_AUTH.endpoint, {
-    form: {
-      username: FORM_AUTH.invalidCredentials.username,
-      password: FORM_AUTH.invalidCredentials.password,
-    },
+    form: FORM_AUTH.invalidCredentials,
     maxRedirects: 0,
   });
 
-  // Rejection can be expressed as a 200 (re-render login with error) or
-  // a redirect back to /login. Either way, the session must NOT be
-  // established — validated below by checking for absence of /secure redirect.
   const status = response.status();
   expect([200, 302, 303]).toContain(status);
 
-  if (status === 302) {
+  if (status === 302 || status === 303) {
     const location = response.headers()['location'] ?? '';
-    // Must redirect back to /login, not forward to /secure.
     expect(location).not.toMatch(/\/secure/);
   }
+
+  // No session cookie should be set for a rejected authentication.
+  const setCookie = response.headers()['set-cookie'] ?? '';
+  expect(setCookie).not.toMatch(/rack\.session/);
 });
 
 // ---------------------------------------------------------------------------
-// A3 — Protected resource denies unauthenticated access
-// Validates that /secure is not accessible without authentication.
-// This confirms the access-control boundary exists at the service layer,
-// not just at the UI level.
+// A3 — Unauthenticated access to protected resource is blocked
+//
+// Validates the access-control boundary at the server layer.
+// A 200 here would mean the protected resource is publicly accessible —
+// a critical security failure that UI tests alone would not reliably catch.
 // ---------------------------------------------------------------------------
-test('A3: unauthenticated GET /secure is redirected away from protected content', async ({ request }) => {
-  const response = await request.get('/secure', {
-    maxRedirects: 0,
-  });
+test('A3: unauthenticated request to protected resource is redirected to login', async ({ request }) => {
+  const response = await request.get('/secure', { maxRedirects: 0 });
 
-  // An unauthenticated request should either be redirected to login (302)
-  // or receive a 403/401. It must never return 200 with secure content.
   expect(response.status()).not.toBe(200);
-  expect([302, 401, 403]).toContain(response.status());
+  expect([302, 303, 401, 403]).toContain(response.status());
 
-  if (response.status() === 302) {
-    const location = response.headers()['location'] ?? '';
-    // Redirect target must be the login page, not any other secure resource.
-    expect(location).toMatch(/\/login/);
+  if (response.status() === 302 || response.status() === 303) {
+    expect(response.headers()['location']).toMatch(/\/login/);
   }
 });
 
 // ---------------------------------------------------------------------------
-// A4 — Authenticated session can access the protected resource
-// After establishing a session via API login, the protected resource must
-// return the expected content. This validates the full auth→access flow
-// at the HTTP layer, confirming the session mechanism works end-to-end.
+// A4 — API-established session grants access to protected resource
+//
+// Validates the complete authentication flow at the HTTP layer:
+//   POST credentials → session established → GET protected resource → 200
+//
+// This proves the session mechanism works end-to-end without a browser,
+// and is the foundation for efficient session reuse across the test suite.
 // ---------------------------------------------------------------------------
-test('A4: authenticated session can access protected resource and receives expected content', async ({ request }) => {
-  // Step 1: Authenticate at the API layer to obtain a session.
+test('A4: API-established session grants access to protected resource', async ({ request }) => {
   const loginResponse = await request.post(FORM_AUTH.endpoint, {
-    form: {
-      username: FORM_AUTH.validCredentials.username,
-      password: FORM_AUTH.validCredentials.password,
-    },
+    form: FORM_AUTH.validCredentials,
   });
 
-  // The login must succeed for the rest of this test to be meaningful.
-  expect(loginResponse.ok() || loginResponse.status() === 302).toBeTruthy();
+  expect([200, 302, 303]).toContain(loginResponse.status());
 
-  // Step 2: Access the protected resource using the established session.
-  // Playwright's APIRequestContext automatically sends cookies from the
-  // login response, simulating what a browser would do.
   const secureResponse = await request.get('/secure');
-
-  // The protected resource must return 200 for an authenticated session.
   expect(secureResponse.status()).toBe(200);
 
-  // The response body must contain the expected authenticated content.
   const body = await secureResponse.text();
   expect(body).toContain('Secure Area');
-});
-
-// ---------------------------------------------------------------------------
-// A5 — Homepage is publicly accessible and returns expected content
-// Validates that the application root is reachable without authentication
-// and returns the expected structure. Used as a lightweight health check
-// that any monitoring system could call.
-// ---------------------------------------------------------------------------
-test('A5: homepage returns 200 with expected content structure', async ({ request }) => {
-  const response = await request.get('/');
-
-  expect(response.status()).toBe(200);
-
-  const body = await response.text();
-
-  // The homepage must contain the application title.
-  expect(body).toContain('The Internet');
-
-  // Navigation links must be present — their absence would indicate a
-  // broken deployment even if the HTTP status returned 200.
-  expect(body).toContain('href');
-});
-
-// ---------------------------------------------------------------------------
-// A6 — Transaction resource endpoint is reachable and returns valid HTML
-// Validates that the "transactional" feature endpoint is operational.
-// This is the equivalent of health-checking a transaction service endpoint.
-// ---------------------------------------------------------------------------
-test('A6: transactional feature endpoint is reachable and returns valid response', async ({ request }) => {
-  const response = await request.get('/add_remove_elements/');
-
-  expect(response.status()).toBe(200);
-
-  const body = await response.text();
-
-  // The page must contain the feature heading — confirming correct routing.
-  expect(body).toContain('Add/Remove Elements');
-
-  // The primary action control must be present in the returned HTML.
-  // If the button HTML is missing, the feature is broken even if the
-  // page returned 200.
-  expect(body).toContain('Add Element');
-});
-
-// ---------------------------------------------------------------------------
-// A7 — Response headers include expected security and content-type headers
-// Validates that the server is returning appropriate HTTP headers.
-// Missing Content-Type headers can indicate misconfigured middleware.
-// ---------------------------------------------------------------------------
-test('A7: response headers include content-type for HTML responses', async ({ request }) => {
-  const response = await request.get('/login');
-
-  expect(response.status()).toBe(200);
-
-  const contentType = response.headers()['content-type'] ?? '';
-  expect(contentType).toMatch(/text\/html/);
 });
